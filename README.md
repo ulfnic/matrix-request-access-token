@@ -1,3 +1,20 @@
+# matrix-request-access-token
+
+A curl wrapper for requesting an access token from a matrix homeserver.
+
+```bash
+# Request an access token
+matrix-request-access-token --auth-url-user-pass '/path/to/auth'
+```
+```bash
+# stdout
+{"access_token":"myaccesstoken","device_id":"mydeviceid","user_id":"@myuser:myhomeserver.org"}
+```
+---
+```bash
+# Output help
+matrix-request-access-token --help
+```
 ```bash
 matrix-request-access-token [ARGUEMENT...] [--] [BASE_URL]
 
