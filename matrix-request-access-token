@@ -104,14 +104,42 @@ base_urls+=("$@")
 
 
 
+# Check dependencies
 type curl 1>/dev/null
 
 
 
+# Load auth file if provided
+load_auth_file() {
+	# input vars: auth_path, auth_path_vars
+	# output vars: ${auth_path_vars[@]}
+	local file_str var_name
+
+	[[ $auth_path == '-' ]] && auth_path='/proc/self/fd/0'
+	file_str=$(<"$auth_path")
+
+	# Read each line into each variable name in ${auth_path_vars[@]} and ignore the rest
+	IFS=$'\n' read -r -d '' "${auth_path_vars[@]}" _ < <(printf '%s\0' "$file_str")
+
+	if [[ $debug ]]; then
+		printf '%s\n' "Read values from ${auth_path@Q}:" 1>&2
+		for var_name in "${auth_path_vars[@]}"; do
+			printf '%s\n' "  $var_name=${!var_name}" 1>&2
+		done
+		printf '\n' 1>&2
+	fi
+fi
+[[ $auth_path ]] && load_auth_file
+
+
+
+# Define function for setting the value of a parent variable
 prompt() {
 	local read_prompt=$1 read_var=$2 visibility=$3 read_params=()
 
 	[[ $visibility == 'show' || $visibility == 'hide' ]] || print_stderr 1 '%s\n' "bad use of prompt() params: ${*@Q}"
+
+	# stdin must be connected to a terminal
 	[[ -t 0 ]] || return 1
 
 	[[ $visibility == 'hide' ]] && read_params+=('-s')
@@ -126,28 +154,11 @@ prompt() {
 
 
 
-# Finish defining base_url, user and pass variables
-if [[ $auth_path ]]; then
-	[[ $auth_path == '-' ]] && auth_path='/proc/self/fd/0'
-	file_str=$(<"$auth_path") # read into a var first to expose to errexit
-	IFS=$'\n' read -r -d '' "${auth_path_vars[@]}" _ < <(printf '%s\0' "$file_str")
-
-	if [[ $debug ]]; then
-		printf '%s\n' "Read values from ${auth_path@Q}:" 1>&2
-		for var_name in "${auth_path_vars[@]}"; do
-			printf '%s\n' "  $var_name=${!var_name}" 1>&2
-		done
-		printf '\n' 1>&2
-	fi
-	unset auth_path auth_path_vars
-fi
-
-
-
+# Settle defining of homeserver base_url with interactive fallback
 if [[ ${#base_urls[@]} == '0' ]]; then
 	# base url not in params
-	if [[ ! $base_url ]]; then
 
+	if [[ ! $base_url ]]; then
 		# base url not in file
 		base_url=$MATRIX__BASE_URL
 		[[ $base_url ]] || prompt 'Enter base url (ex: https://matrix-client.matrix.org):' 'base_url' 'show' || print_stderr 1 '%s\n' 'no homeserver base url given'
@@ -160,11 +171,9 @@ fi
 
 
 
+# Settle defining of user and pass with interactive fallback
 : ${user:=$MATRIX__USER}
 [[ $user ]] || prompt 'Enter username (ex: myuser):' 'user' 'show' || print_stderr 1 '%s\n' 'no user provided'
-
-
-
 [[ $pass ]] || prompt 'Enter password:' 'pass' 'hide' || print_stderr 1 '%s\n' 'no password provided'
 
 
@@ -179,7 +188,7 @@ fi
 
 
 
-# Prepare and send curl request
+# Define JSON for request
 json_encode() {
 	local -n 'json_encode__str='"$1"
 	json_encode__str=${json_encode__str//\\/\\\\}
@@ -192,7 +201,7 @@ json_encode pass
 
 
 
-{ read -r -d '' req_json || req_json=${req_json//,$'\n'/', '}; req_json=${req_json//$'\n'}; } <<-EOF
+{ read -r -d '' req_json || :; } <<-EOF
 	{
 		"identifier": {
 			"type": "m.id.user",
@@ -202,6 +211,8 @@ json_encode pass
 		"type": "m.login.password"
 	}
 EOF
+req_json=${req_json//,$'\n'/', '}
+req_json=${req_json//$'\n'}
 
 
 
@@ -218,6 +229,7 @@ fi
 
 
 
+# Send request
 curl \
 	-X POST \
 	-H 'Content-Type: application/json' \
