@@ -62,6 +62,6 @@ EXAMPLES
  	matrix-request-access-token --auth-url-user-pass '/path/to/auth'
 
 	# Headless request using a variety of inputs
-	MATRIX__BASE_URL='https://matrix-client.matrix.org' \
+	MATRIX__BASE_URL='https://myhomeserver.org' \
 	matrix-request-access-token -u 'myuser' --auth-pass <( printf '%s\n' 'mypass' )
 ```
