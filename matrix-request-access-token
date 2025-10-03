@@ -14,13 +14,15 @@ help_doc() {
 
 		|ARGUEMENT
 		|	-u|--user USER
-		|	--auth-url-user-pass AUTH_FILE   File containing a BASE_URL, user and password
-		|	--auth-user-pass AUTH_FILE       File containing a user and password
-		|	--auth-pass AUTH_FILE            File containing a password
-		|	--dry-run                        Do everything except send the request
-		|	--debug                          Output debugging information
-		|	-h|--help                        Print help doc
-		|	BASE_URL                         Homeserver base url
+		|	-I|--device-id ID                       Optional ID of known device
+		|	-n|--initial-device-display-name NAME   Optional display NAME for new device
+		|	--auth-url-user-pass AUTH_FILE          File containing a BASE_URL, user and password
+		|	--auth-user-pass AUTH_FILE              File containing a user and password
+		|	--auth-pass AUTH_FILE                   File containing a password
+		|	--dry-run                               Do everything except send the request
+		|	--debug                                 Output debugging information
+		|	-h|--help                               Print help doc
+		|	BASE_URL                                Homeserver base url
 
 		|AUTH_FILE
 		|	Path to a newline deliminated file containing values ordered as described by
@@ -28,8 +30,10 @@ help_doc() {
 		|	If the path is a hyphen (-), contents are read from stdin.
 
 		|ENVIRONMENT
-		|	MATRIX__BASE_URL   Base url of the Matrix homeserver
-		|	MATRIX__USER       Account username, not including @...
+		|	MATRIX__BASE_URL                      Base url of the Matrix homeserver
+		|	MATRIX__USER                          Account username, not including @...
+		|	MATRIX__DEVICE_ID                     Optional ID of known device
+		|	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
 
 		|VALUE PRIORITY
 		|	ARGUEMENT value > AUTH_FILE value > ENVIRONMENT value
@@ -71,6 +75,8 @@ print_stderr() {
 
 
 user=
+device_id=
+initial_device_display_name=
 base_url=
 base_urls=()
 auth_path=
@@ -81,6 +87,10 @@ while [[ $1 ]]; do
 	case $1 in
 		'--user'|'-u')
 			shift; user=$1 ;;
+		'--device-id'|'-I')
+			shift; device_id=$1 ;;
+		'--initial-device-display-name'|'-n')
+			shift; initial_device_display_name=$1 ;;
 		'--auth-url-user-pass')
 			shift; auth_path=$1; auth_path_vars=(base_url user pass);;
 		'--auth-user-pass')
@@ -173,19 +183,24 @@ fi
 
 
 
-# Settle defining of user and pass with interactive fallback
+# Settle defining of remaining login variables with interactive fallback
 : ${user:=$MATRIX__USER}
+: ${device_id:=$MATRIX__DEVICE_ID}
+: ${initial_device_display_name:=$MATRIX__INITIAL_DEVICE_DISPLAY_NAME}
 [[ $user ]] || prompt 'Enter username (ex: myuser):' 'user' 'show' || print_stderr 1 '%s\n' 'no user provided'
 [[ $pass ]] || prompt 'Enter password:' 'pass' 'hide' || print_stderr 1 '%s\n' 'no password provided'
 
 
 
 if [[ $debug ]]; then
-	printf '%s\n' "Using values:" 1>&2
-	printf '%s\n' "  base_url=${base_url}" 1>&2
-	printf '%s\n' "  user=${user}" 1>&2
-	printf '%s\n' "  pass=${pass}" 1>&2
-	printf '\n' 1>&2
+	{ read -r -d '' || printf '%s\n' "$REPLY"; } <<-EOF 1>&2
+		Using values:
+		  base_url=${base_url}
+		  user=${user}
+		  pass=${pass}
+		  device_id=${device_id}
+		  initial_device_display_name=${initial_device_display_name}
+	EOF
 fi
 
 
@@ -203,12 +218,30 @@ json_encode pass
 
 
 
+inline_json__device_id=
+if [[ $device_id ]]; then
+	json_encode device_id
+	inline_json__device_id="\"device_id\": \"${device_id}\","
+fi
+
+
+
+inline_json__initial_device_display_name=
+if [[ $initial_device_display_name ]]; then
+	json_encode initial_device_display_name
+	inline_json__initial_device_display_name="\"initial_device_display_name\": \"${initial_device_display_name}\","
+fi
+
+
+
 { read -r -d '' req_json || :; } <<-EOF
 	{
 		"identifier": {
 			"type": "m.id.user",
+			${inline_json__device_id}
 			"user": "${user}"
 		},
+		${inline_json__initial_device_display_name}
 		"password": "${pass}",
 		"type": "m.login.password"
 	}

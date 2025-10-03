@@ -25,13 +25,15 @@ DEPENDENCIES
 
 ARGUEMENT
 	-u|--user USER
-	--auth-url-user-pass AUTH_FILE   File containing a BASE_URL, user and password
-	--auth-user-pass AUTH_FILE       File containing a user and password
-	--auth-pass AUTH_FILE            File containing a password
-	--dry-run                        Do everything except send the request
-	--debug                          Output debugging information
-	-h|--help                        Print help doc
-	BASE_URL                         Homeserver base url
+	-I|--device-id ID                       Optional ID of known device
+	-n|--initial-device-display-name NAME   Optional display NAME for new device
+	--auth-url-user-pass AUTH_FILE          File containing a BASE_URL, user and password
+	--auth-user-pass AUTH_FILE              File containing a user and password
+	--auth-pass AUTH_FILE                   File containing a password
+	--dry-run                               Do everything except send the request
+	--debug                                 Output debugging information
+	-h|--help                               Print help doc
+	BASE_URL                                Homeserver base url
 
 AUTH_FILE
 	Path to a newline deliminated file containing values ordered as described by
@@ -39,8 +41,10 @@ AUTH_FILE
 	If the path is a hyphen (-), contents are read from stdin.
 
 ENVIRONMENT
-	MATRIX__BASE_URL   Base url of the Matrix homeserver
-	MATRIX__USER       Account username, not including @...
+	MATRIX__BASE_URL                      Base url of the Matrix homeserver
+	MATRIX__USER                          Account username, not including @...
+	MATRIX__DEVICE_ID                     Optional ID of known device
+	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
 
 VALUE PRIORITY
 	ARGUEMENT value > AUTH_FILE value > ENVIRONMENT value
