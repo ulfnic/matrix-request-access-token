@@ -4,7 +4,7 @@ set -o errexit
 
 
 help_doc() {
-	{ read -r -d '' || printf '%s' "$REPLY"; } <<-'HelpDoc'
+	{ read -r -d '' || :; [[ $REPLY == '|'* ]] && REPLY=${REPLY:1}; printf '%s' "${REPLY//$'\n|'/$'\n'}"; } <<-'HelpDoc'
 		matrix-request-access-token [ARGUEMENT...] [--] [BASE_URL]
 
 		A curl wrapper for requesting an access token from a matrix homeserver.
