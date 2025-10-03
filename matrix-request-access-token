@@ -20,11 +20,12 @@ help_doc() {
 		|	--dry-run                        Do everything except send the request
 		|	--debug                          Output debugging information
 		|	-h|--help                        Print help doc
-		|	BASE_URL
+		|	BASE_URL                         Homeserver base url
 
 		|AUTH_FILE
-		|	Newline deliminated file containing values in the order specified by the ARGUEMENT.
-		|	Lines in excess of those values are treated as comments.
+		|	Path to a newline deliminated file containing values ordered as described by
+		|	the ARGUEMENT. Lines in excess of these values are treated as comments.
+		|	If the path is a hyphen (-), contents are read from stdin.
 
 		|ENVIRONMENT
 		|	MATRIX__BASE_URL   Base url of the Matrix homeserver
