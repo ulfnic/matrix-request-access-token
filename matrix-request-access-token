@@ -7,7 +7,7 @@ help_doc() {
 	{ read -r -d '' || printf '%s' "$REPLY"; } <<-'HelpDoc'
 		matrix-request-access-token [ARGUEMENT...] [--] [BASE_URL]
 
-		A curl wrapper for requesting an access token from a matrix server.
+		A curl wrapper for requesting an access token from a matrix homeserver.
 
 		DEPENDENCIES
 		  curl
@@ -22,24 +22,35 @@ help_doc() {
 		  BASE_URL
 
 		AUTH_FILE
-		  Newline deliminated file containing values described in ARGUEMENT above in the
-		  order of their description. Lines in excess of those values are treated as comments.
+		  Newline deliminated file containing values in the order specified by the ARGUEMENT.
+		  Lines in excess of those values are treated as comments.
 
 		ENVIRONMENT
-		  MATRIX__BASE_URL   Base url of the Matrix server
+		  MATRIX__BASE_URL   Base url of the Matrix homeserver
 		  MATRIX__USER       Account username, not including @...
 
 		VALUE PRIORITY
 		   ARGUEMENT value > AUTH_FILE value > ENVIRONMENT value
 
 		EXAMPLES
-		  # Enter information interactively
-		  matrix-request-access-token
+		  # Enter missing information interactively
+		  matrix-request-access-token 'https://myhomeserver.org'
 
-		  matrix-request-access-token --auth-user-pass /path/to/auth 'https://matrix-client.matrix.org'
+		  # Create an auth file
+		  >'/path/to/auth'
+		  chmod 600 -- '/path/to/auth'
+		  cat <<-'EOF' > '/path/to/auth'
+		  	https://myhomeserver.org
+		  	myuser
+		  	mypass
+		  EOF
 
+		  # Headless request
+		  matrix-request-access-token --auth-url-user-pass '/path/to/auth'
+
+		  # Headless request using a variety of inputs
 		  MATRIX__BASE_URL='https://matrix-client.matrix.org' \
-		  matrix-request-access-token -u myuser --auth-pass <( printf '%s\n' 'mypass' )
+		  matrix-request-access-token -u 'myuser' --auth-pass <( printf '%s\n' 'mypass' )
 	HelpDoc
 	[[ $1 ]] && exit "$1"
 }
