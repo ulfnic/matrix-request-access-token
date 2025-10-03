@@ -130,7 +130,7 @@ load_auth_file() {
 		done
 		printf '\n' 1>&2
 	fi
-fi
+}
 [[ $auth_path ]] && load_auth_file
 
 
