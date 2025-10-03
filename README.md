@@ -30,6 +30,7 @@ ARGUEMENT
 	--auth-pass AUTH_FILE            File containing a password
 	--dry-run                        Do everything except send the request
 	--debug                          Output debugging information
+	-h|--help                        Print help doc
 	BASE_URL
 
 AUTH_FILE
