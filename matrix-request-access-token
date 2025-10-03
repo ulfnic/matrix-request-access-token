@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+[[ $DEBUG ]] && set -x
+set -o errexit
+
+
+help_doc() {
+	{ read -r -d '' || printf '%s' "$REPLY"; } <<-'HelpDoc'
+		matrix-request-access-token [ARGUEMENT...] [--] [BASE_URL]
+
+		A curl wrapper for requesting an access token from a matrix server.
+
+		DEPENDENCIES
+		  curl
+
+		ARGUEMENT
+		  -u|--user USER
+		  --auth-url-user-pass AUTH_FILE   File containing a BASE_URL, user and password
+		  --auth-user-pass AUTH_FILE       File containing a user and password
+		  --auth-pass AUTH_FILE            File containing a password
+		  --dry-run                        Do everything except send the request
+		  --debug                          Output debugging information
+		  BASE_URL
+
+		AUTH_FILE
+		  Newline deliminated file containing values described in ARGUEMENT above in the
+		  order of their description. Lines in excess of those values are treated as comments.
+
+		ENVIRONMENT
+		  MATRIX__BASE_URL   Base url of the Matrix server
+		  MATRIX__USER       Account username, not including @...
+
+		VALUE PRIORITY
+		   ARGUEMENT value > AUTH_FILE value > ENVIRONMENT value
+
+		EXAMPLES
+		  # Enter information interactively
+		  matrix-request-access-token
+
+		  matrix-request-access-token --auth-user-pass /path/to/auth 'https://matrix-client.matrix.org'
+
+		  MATRIX__BASE_URL='https://matrix-client.matrix.org' \
+		  matrix-request-access-token -u myuser --auth-pass <( printf '%s\n' 'mypass' )
+	HelpDoc
+	[[ $1 ]] && exit "$1"
+}
+
+
+
+print_stderr() {
+	if [[ $1 == '0' ]]; then
+		[[ $2 ]] && printf "$2" "${@:3}" 1>&2 || :
+	else
+		[[ $2 ]] && printf '%s'"$2" "ERROR: ${0##*/}, " "${@:3}" 1>&2 || :
+		exit "$1"
+	fi
+}
+
+
+
+user=
+base_url=
+base_urls=()
+auth_path=
+auth_path_vars=()
+debug=
+dry_run=
+while [[ $1 ]]; do
+	case $1 in
+		'--user'|'-u')
+			shift; user=$1 ;;
+		'--auth-url-user-pass')
+			shift; auth_path=$1; auth_path_vars=(base_url user pass);;
+		'--auth-user-pass')
+			shift; auth_path=$1; auth_path_vars=(user pass);;
+		'--auth-pass')
+			shift; auth_path=$1; auth_path_vars=(pass);;
+		'--dry-run')
+			dry_run=1 ;;
+		'--debug')
+			debug=1 ;;
+		'--help'|'-h')
+			help_doc 0 ;;
+		'--')
+			shift; break ;;
+		'-'*)
+			print_stderr 1 '%s %q\n' 'unrecognized parameter:' "$1" ;;
+		*)
+			base_urls+=("$1") ;;
+	esac
+	shift
+done
+base_urls+=("$@")
+
+
+
+type curl 1>/dev/null
+
+
+
+prompt() {
+	local read_prompt=$1 read_var=$2 visibility=$3 read_params=()
+
+	[[ $visibility == 'show' || $visibility == 'hide' ]] || print_stderr 1 '%s\n' "bad use of prompt() params: ${*@Q}"
+	[[ -t 0 ]] || return 1
+
+	[[ $visibility == 'hide' ]] && read_params+=('-s')
+	read_params+=('-r' '-p' "${read_prompt} " "$read_var")
+
+	IFS= read "${read_params[@]}" < /dev/tty
+
+	[[ $visibility == 'hide' ]] && printf '\n' 1>&2
+	[[ ! ${!read_var} ]] && return 4
+	return 0
+}
+
+
+
+# Finish defining base_url, user and pass variables
+if [[ $auth_path ]]; then
+	[[ $auth_path == '-' ]] && auth_path='/proc/self/fd/0'
+	file_str=$(<"$auth_path") # read into a var first to expose to errexit
+	IFS=$'\n' read -r -d '' "${auth_path_vars[@]}" _ < <(printf '%s\0' "$file_str")
+
+	if [[ $debug ]]; then
+		printf '%s\n' "Read values from ${auth_path@Q}:" 1>&2
+		for var_name in "${auth_path_vars[@]}"; do
+			printf '%s\n' "  $var_name=${!var_name}" 1>&2
+		done
+		printf '\n' 1>&2
+	fi
+	unset auth_path auth_path_vars
+fi
+
+
+
+if [[ ${#base_urls[@]} == '0' ]]; then
+	# base url not in params
+	if [[ ! $base_url ]]; then
+
+		# base url not in file
+		base_url=$MATRIX__BASE_URL
+		[[ $base_url ]] || prompt 'Enter base url (ex: https://matrix-client.matrix.org):' 'base_url' 'show' || print_stderr 1 '%s\n' 'no homeserver base url given'
+	fi
+
+else
+	[[ ${#base_urls[@]} != '1' ]] && print_stderr 1 '%s\n' 'more than one base url parameter given'
+	base_url=${base_urls[0]}
+fi
+
+
+
+: ${user:=$MATRIX__USER}
+[[ $user ]] || prompt 'Enter username (ex: myuser):' 'user' 'show' || print_stderr 1 '%s\n' 'no user provided'
+
+
+
+[[ $pass ]] || prompt 'Enter password:' 'pass' 'hide' || print_stderr 1 '%s\n' 'no password provided'
+
+
+
+if [[ $debug ]]; then
+	printf '%s\n' "Using values:" 1>&2
+	printf '%s\n' "  base_url=${base_url}" 1>&2
+	printf '%s\n' "  user=${user}" 1>&2
+	printf '%s\n' "  pass=${pass}" 1>&2
+	printf '\n' 1>&2
+fi
+
+
+
+# Prepare and send curl request
+json_encode() {
+	local -n 'json_encode__str='"$1"
+	json_encode__str=${json_encode__str//\\/\\\\}
+	json_encode__str=${json_encode__str//\"/\\\"} #"
+	json_encode__str=${json_encode__str//$'\n'/\\n}
+	json_encode__str=${json_encode__str//$'\t'/\\t}
+}
+json_encode user
+json_encode pass
+
+
+
+{ read -r -d '' req_json || req_json=${req_json//,$'\n'/', '}; req_json=${req_json//$'\n'}; } <<-EOF
+	{
+		"identifier": {
+			"type": "m.id.user",
+			"user": "${user}"
+		},
+		"password": "${pass}",
+		"type": "m.login.password"
+	}
+EOF
+
+
+
+if [[ $debug ]]; then
+	printf '%s\n' "req_json=${req_json}"
+
+	curl() {
+		printf '%s ' 'curl' "${@@Q}" 1>&2; printf '\n---\n' 1>&2
+		[[ $dry_run ]] || curl "$@"
+	}
+elif [[ $dry_run ]]; then
+	exit 0
+fi
+
+
+
+curl \
+	-X POST \
+	-H 'Content-Type: application/json' \
+	-d @<(printf '%s' "$req_json") \
+	"${base_url}/_matrix/client/v3/login"
+
+
+
+[[ -t 0 ]] && printf '\n' 1>&2
+exit 0
+
+
+
