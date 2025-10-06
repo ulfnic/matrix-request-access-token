@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 [[ $DEBUG ]] && set -x
 set -o errexit
+LANG=C
 
 
 help_doc() {
 	{ read -r -d '' || :; [[ $REPLY == '|'* ]] && REPLY=${REPLY:1}; printf '%s' "${REPLY//$'\n|'/$'\n'}"; } <<-'HelpDoc'
-		|matrix-request-access-token [ARGUEMENT...] [--] [BASE_URL]
+		|matrix-request-access-token [ARGUEMENT...] [--] [HOMESERVER]
 
 		|A curl wrapper for requesting an access token from a matrix homeserver.
 
@@ -16,47 +17,53 @@ help_doc() {
 		|	-u|--user USER
 		|	-I|--device-id ID                       Optional ID of known device
 		|	-n|--initial-device-display-name NAME   Optional display NAME for new device
-		|	--auth-url-user-pass AUTH_FILE          File containing a BASE_URL, user and password
-		|	--auth-user-pass AUTH_FILE              File containing a user and password
-		|	--auth-pass AUTH_FILE                   File containing a password
+		|	-U|--user-file USER_FILE                See: USER_FILE
 		|	--dry-run                               Do everything except send the request
 		|	--debug                                 Output debugging information
 		|	-h|--help                               Print help doc
-		|	BASE_URL                                Homeserver base url
+		|	HOMESERVER                              Homeserver base url
 
-		|AUTH_FILE
-		|	Path to a newline deliminated file containing values ordered as described by
-		|	the ARGUEMENT. Lines in excess of these values are treated as comments.
-		|	If the path is a hyphen (-), contents are read from stdin.
+		|USER_FILE
+		|	Path to a file containing VALUE_PAIRs as an alternative to using ARGUEMENTs, ex:
+		|		VAR_NAME=VALUE
+		|		
+		|	If the path is a hyphen (-), file is stdin.
+		|
+		|	ACCEPTED VAR_NAMEs:
+		|		homeserver, user, password, device_id, initial_device_display_name
+		|
+		|	- Lines not containing a VALUE_PAIR with an ACCEPTED VAR_NAME are ignored as comments.
+		|	- Each VALUE_PAIR must be on its own line ending in a newline.
+		|	- VAR_NAME is every character after tab/space indenting until the first equals (=).
+		|	- VALUE is every character after the first equals (=) until the first newline (\n).
+		|	- VAR_NAME and VALUE are read as raw text with no escaping or special rules.
 
 		|ENVIRONMENT
-		|	MATRIX__BASE_URL                      Base url of the Matrix homeserver
+		|	MATRIX__HOMESERVER                    Matrix homeserver url, ex: https://myhomeserver.org
 		|	MATRIX__USER                          Account username, not including @...
 		|	MATRIX__DEVICE_ID                     Optional ID of known device
 		|	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
 
 		|VALUE PRIORITY
-		|	ARGUEMENT value > AUTH_FILE value > ENVIRONMENT value
+		|	ARGUEMENT value > USER_FILE value > ENVIRONMENT value
 
 		|EXAMPLES
 		|	# Enter missing information interactively
 		|	matrix-request-access-token 'https://myhomeserver.org'
 		|
-		|	# Create an auth file
-		|	>'/path/to/auth'
-		|	chmod 600 -- '/path/to/auth'
-		|	cat <<-'EOF' > '/path/to/auth'
-		|		https://myhomeserver.org
-		|		myuser
-		|		mypass
+		|	# Create a USER_FILE
+		|	>'/path/to/myuser'
+		|	chmod 600 -- '/path/to/myuser'
+		|	cat <<-'EOF' > '/path/to/myuser'
+		|		initial_device_display_name=My Device
+		|		device_id=12345
+		|		user=myuser
+		|		password=m\y pa#ss
+		|		homeserver=https://myhomeserver.org
 		|	EOF
 		|
 		|	# Headless request
-		| 	matrix-request-access-token --auth-url-user-pass '/path/to/auth'
-		|
-		|	# Headless request using a variety of inputs
-		|	MATRIX__BASE_URL='https://myhomeserver.org' \
-		|	matrix-request-access-token -u 'myuser' --auth-pass <( printf '%s\n' 'mypass' )
+		| 	matrix-request-access-token -U '/path/to/myuser'
 	HelpDoc
 	[[ $1 ]] && exit "$1"
 }
@@ -74,29 +81,37 @@ print_stderr() {
 
 
 
+# Check dependencies
+type curl 1>/dev/null
+
+
+
 user=
 device_id=
 initial_device_display_name=
-base_url=
-base_urls=()
-auth_path=
-auth_path_vars=()
+homeserver=
+homeservers=()
+user_file_path=
 debug=
 dry_run=
+declare -A user=(
+	['homeserver']=
+	['user']=
+	['password']=
+	['device_id']=
+	['initial_device_display_name']=
+)
+
 while [[ $1 ]]; do
 	case $1 in
 		'--user'|'-u')
-			shift; user=$1 ;;
+			shift; user['user']=$1 ;;
 		'--device-id'|'-I')
-			shift; device_id=$1 ;;
+			shift; user['device_id']=$1 ;;
 		'--initial-device-display-name'|'-n')
-			shift; initial_device_display_name=$1 ;;
-		'--auth-url-user-pass')
-			shift; auth_path=$1; auth_path_vars=(base_url user pass);;
-		'--auth-user-pass')
-			shift; auth_path=$1; auth_path_vars=(user pass);;
-		'--auth-pass')
-			shift; auth_path=$1; auth_path_vars=(pass);;
+			shift; user['initial_device_display_name']=$1 ;;
+		'--user-file'|'-U')
+			shift; user_file_path=$1 ;;
 		'--dry-run')
 			dry_run=1 ;;
 		'--debug')
@@ -108,44 +123,70 @@ while [[ $1 ]]; do
 		'-'*)
 			print_stderr 1 '%s %q\n' 'unrecognized parameter:' "$1" ;;
 		*)
-			base_urls+=("$1") ;;
+			homeservers+=("$1") ;;
 	esac
 	shift
 done
-base_urls+=("$@")
+homeservers+=("$@")
 
 
 
-# Check dependencies
-type curl 1>/dev/null
+if [[ ${#homeservers[@]} != '0' ]]; then
+	[[ ${#homeservers[@]} != '1' ]] && print_stderr 1 '%s\n' 'more than one base url parameter given'
+	user['homeserver']=${homeservers[0]}
+fi
+unset homeservers
 
 
 
-# Load auth file if provided
+# Define function for loading auth files 
 load_auth_file() {
-	# input vars: auth_path, auth_path_vars
-	# output vars: ${auth_path_vars[@]}
-	local file_str var_name
+	# input vars: user, user_file_path
+	local no_clobber=$1 file_str var_name
 
-	[[ $auth_path == '-' ]] && auth_path='/proc/self/fd/0'
-	file_str=$(<"$auth_path")
 
-	# Read each line into each variable name in ${auth_path_vars[@]} and ignore the rest
-	IFS=$'\n' read -r -d '' "${auth_path_vars[@]}" _ < <(printf '%s\0' "$file_str")
+	[[ $user_file_path == '-' ]] && user_file_path='/proc/self/fd/0'
 
+
+	while IFS='=' read -r prop val; do
+		[[ $val ]] || continue
+		prop=${prop#"${prop%%[![:space:]]*}"}
+		[[ $prop ]] || continue
+
+		# Only accept value pairs the script is looking for
+		[[ user["$prop"] ]] || continue
+
+		[[ $no_clobber && ${user["$prop"]} ]] && continue
+		user["$prop"]=$val
+	done < "$user_file_path"
+
+
+	# debug: print contents of gathered user data
 	if [[ $debug ]]; then
-		printf '%s\n' "Read values from ${auth_path@Q}:" 1>&2
-		for var_name in "${auth_path_vars[@]}"; do
-			printf '%s\n' "  $var_name=${!var_name}" 1>&2
+		printf '%s\n' "Read values from ${user_file_path@Q}:" 1>&2
+		for prop in "${!user[@]}"; do
+			[[ $prop ]] || continue
+			printf '%s\n' "  $prop=${user["$prop"]}" 1>&2
 		done
 		printf '\n' 1>&2
 	fi
 }
-[[ $auth_path ]] && load_auth_file
+
+
+# Load auth file if provided, without clobbering
+[[ $user_file_path ]] && load_auth_file 1
 
 
 
-# Define function for setting the value of a parent variable
+# Load env variables if provided, without clobbering
+: ${user['homeserver']:=$MATRIX__HOMESERVER}
+: ${user['user']:=$MATRIX__USER}
+: ${user['device_id']:=$MATRIX__DEVICE_ID}
+: ${user['initial_device_display_name']:=$MATRIX__INITIAL_DEVICE_DISPLAY_NAME}
+
+
+
+# Define function for setting the value of a parent variable with an interactive prompt
 prompt() {
 	local read_prompt=$1 read_var=$2 visibility=$3 read_params=()
 
@@ -166,41 +207,21 @@ prompt() {
 
 
 
-# Settle defining of homeserver base_url with interactive fallback
-if [[ ${#base_urls[@]} == '0' ]]; then
-	# base url not in params
-
-	if [[ ! $base_url ]]; then
-		# base url not in file
-		base_url=$MATRIX__BASE_URL
-		[[ $base_url ]] || prompt 'Enter base url (ex: https://matrix-client.matrix.org):' 'base_url' 'show' || print_stderr 1 '%s\n' 'no homeserver base url given'
-	fi
-
-else
-	[[ ${#base_urls[@]} != '1' ]] && print_stderr 1 '%s\n' 'more than one base url parameter given'
-	base_url=${base_urls[0]}
-fi
+# Prompt for values mandatory for a successful request
+[[ ${user['homeserver']} ]] || prompt 'Enter base url (ex: https://matrix-client.matrix.org):' "user['homeserver']" 'show' || print_stderr 1 '%s\n' 'no homeserver provided'
+[[ ${user['user']} ]] || prompt 'Enter username (ex: myuser):' "user['user']" 'show' || print_stderr 1 '%s\n' 'no user provided'
+[[ ${user['password']} ]] || prompt 'Enter password:' "user['password']" 'hide' || print_stderr 1 '%s\n' 'no password provided'
 
 
 
-# Settle defining of remaining login variables with interactive fallback
-: ${user:=$MATRIX__USER}
-: ${device_id:=$MATRIX__DEVICE_ID}
-: ${initial_device_display_name:=$MATRIX__INITIAL_DEVICE_DISPLAY_NAME}
-[[ $user ]] || prompt 'Enter username (ex: myuser):' 'user' 'show' || print_stderr 1 '%s\n' 'no user provided'
-[[ $pass ]] || prompt 'Enter password:' 'pass' 'hide' || print_stderr 1 '%s\n' 'no password provided'
-
-
-
+# debug: print contents of gathered user data
 if [[ $debug ]]; then
-	{ read -r -d '' || printf '%s\n' "$REPLY"; } <<-EOF 1>&2
-		Using values:
-		  base_url=${base_url}
-		  user=${user}
-		  pass=${pass}
-		  device_id=${device_id}
-		  initial_device_display_name=${initial_device_display_name}
-	EOF
+	printf '%s\n' "Using values:" 1>&2
+	for prop in "${!user[@]}"; do
+		[[ $prop ]] || continue
+		printf '%s\n' "  $prop=${user["$prop"]}" 1>&2
+	done
+	printf '\n' 1>&2
 fi
 
 
@@ -213,23 +234,23 @@ json_encode() {
 	json_encode__str=${json_encode__str//$'\n'/\\n}
 	json_encode__str=${json_encode__str//$'\t'/\\t}
 }
-json_encode user
-json_encode pass
+json_encode user['user']
+json_encode user['password']
 
 
 
 inline_json__device_id=
-if [[ $device_id ]]; then
-	json_encode device_id
-	inline_json__device_id="\"device_id\": \"${device_id}\","
+if [[ ${user['device_id']} ]]; then
+	json_encode user['device_id']
+	inline_json__device_id="\"device_id\": \"${user['device_id']}\","
 fi
 
 
 
 inline_json__initial_device_display_name=
-if [[ $initial_device_display_name ]]; then
-	json_encode initial_device_display_name
-	inline_json__initial_device_display_name="\"initial_device_display_name\": \"${initial_device_display_name}\","
+if [[ ${user['initial_device_display_name']} ]]; then
+	json_encode user['initial_device_display_name']
+	inline_json__initial_device_display_name="\"initial_device_display_name\": \"${user['initial_device_display_name']}\","
 fi
 
 
@@ -239,10 +260,10 @@ fi
 		"identifier": {
 			"type": "m.id.user",
 			${inline_json__device_id}
-			"user": "${user}"
+			"user": "${user['user']}"
 		},
 		${inline_json__initial_device_display_name}
-		"password": "${pass}",
+		"password": "${user['password']}",
 		"type": "m.login.password"
 	}
 EOF
@@ -251,6 +272,7 @@ req_json=${req_json//$'\n'}
 
 
 
+# debug: print JSON for request
 if [[ $debug ]]; then
 	printf '%s\n' "req_json=${req_json}"
 
@@ -269,7 +291,8 @@ curl \
 	-X POST \
 	-H 'Content-Type: application/json' \
 	-d @<(printf '%s' "$req_json") \
-	"${base_url}/_matrix/client/v3/login"
+	-- \
+	"${user['homeserver']}/_matrix/client/v3/login"
 
 
 

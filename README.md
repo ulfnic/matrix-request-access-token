@@ -16,7 +16,7 @@ matrix-request-access-token --auth-url-user-pass '/path/to/auth'
 matrix-request-access-token --help
 ```
 ```bash
-matrix-request-access-token [ARGUEMENT...] [--] [BASE_URL]
+matrix-request-access-token [ARGUEMENT...] [--] [HOMESERVER]
 
 A curl wrapper for requesting an access token from a matrix homeserver.
 
@@ -27,45 +27,51 @@ ARGUEMENT
 	-u|--user USER
 	-I|--device-id ID                       Optional ID of known device
 	-n|--initial-device-display-name NAME   Optional display NAME for new device
-	--auth-url-user-pass AUTH_FILE          File containing a BASE_URL, user and password
-	--auth-user-pass AUTH_FILE              File containing a user and password
-	--auth-pass AUTH_FILE                   File containing a password
+	-U|--user-file USER_FILE                See: USER_FILE
 	--dry-run                               Do everything except send the request
 	--debug                                 Output debugging information
 	-h|--help                               Print help doc
-	BASE_URL                                Homeserver base url
+	HOMESERVER                              Homeserver base url
 
-AUTH_FILE
-	Path to a newline deliminated file containing values ordered as described by
-	the ARGUEMENT. Lines in excess of these values are treated as comments.
-	If the path is a hyphen (-), contents are read from stdin.
+USER_FILE
+	Path to a file containing VALUE_PAIRs as an alternative to using ARGUEMENTs, ex:
+		VAR_NAME=VALUE
+		
+	If the path is a hyphen (-), file is stdin.
+
+	ACCEPTED VAR_NAMEs:
+		homeserver, user, password, device_id, initial_device_display_name
+
+	- Lines not containing a VALUE_PAIR with an ACCEPTED VAR_NAME are ignored as comments.
+	- Each VALUE_PAIR must be on its own line ending in a newline.
+	- VAR_NAME is every character after tab/space indenting until the first equals (=).
+	- VALUE is every character after the first equals (=) until the first newline (\n).
+	- VAR_NAME and VALUE are read as raw text with no escaping or special rules.
 
 ENVIRONMENT
-	MATRIX__BASE_URL                      Base url of the Matrix homeserver
+	MATRIX__HOMESERVER                    Matrix homeserver url, ex: https://myhomeserver.org
 	MATRIX__USER                          Account username, not including @...
 	MATRIX__DEVICE_ID                     Optional ID of known device
 	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
 
 VALUE PRIORITY
-	ARGUEMENT value > AUTH_FILE value > ENVIRONMENT value
+	ARGUEMENT value > USER_FILE value > ENVIRONMENT value
 
 EXAMPLES
 	# Enter missing information interactively
 	matrix-request-access-token 'https://myhomeserver.org'
 
-	# Create an auth file
-	>'/path/to/auth'
-	chmod 600 -- '/path/to/auth'
-	cat <<-'EOF' > '/path/to/auth'
-		https://myhomeserver.org
-		myuser
-		mypass
+	# Create a USER_FILE
+	>'/path/to/myuser'
+	chmod 600 -- '/path/to/myuser'
+	cat <<-'EOF' > '/path/to/myuser'
+		initial_device_display_name=My Device
+		device_id=12345
+		user=myuser
+		password=m\y pa#ss
+		homeserver=https://myhomeserver.org
 	EOF
 
 	# Headless request
- 	matrix-request-access-token --auth-url-user-pass '/path/to/auth'
-
-	# Headless request using a variety of inputs
-	MATRIX__BASE_URL='https://myhomeserver.org' \
-	matrix-request-access-token -u 'myuser' --auth-pass <( printf '%s\n' 'mypass' )
+ 	matrix-request-access-token -U '/path/to/myuser'
 ```
