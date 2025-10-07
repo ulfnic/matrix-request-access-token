@@ -1,10 +1,10 @@
-# matrix-request-access-token
+# matrix-client-v3-login
 
 `curl` wrapper for requesting an access token from a matrix homeserver.
 
 ```bash
 # Request an access token
-matrix-request-access-token -u 'myuser' -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
+matrix-client-v3-login -u 'myuser' -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
 ```
 ```bash
 # stdout
@@ -13,10 +13,10 @@ matrix-request-access-token -u 'myuser' -P <(printf '%s' 'mypass') 'https://myho
 ---
 ```bash
 # Output help
-matrix-request-access-token --help
+matrix-client-v3-login --help
 ```
 ```bash
-matrix-request-access-token [ARGUEMENT...] [--] [HOMESERVER]
+matrix-client-v3-login [ARGUEMENT...] [--] [HOMESERVER]
 
 curl wrapper for requesting an access token from a matrix homeserver.
 
@@ -67,10 +67,10 @@ VALUE PRIORITY
 
 EXAMPLES
 	# User interactive prompts to enter missing information that's required
-	matrix-request-access-token
+	matrix-client-v3-login
 
 	# Headless request using ARGUEMENTs
-	matrix-request-access-token -u myuser -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
+	matrix-client-v3-login -u myuser -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
 
 	# Create a USER_FILE
 	>'/path/to/myuser'
@@ -85,5 +85,5 @@ EXAMPLES
 	EOF
 
 	# Headless request using a USER_FILE
- 	matrix-request-access-token -U '/path/to/myuser'
+ 	matrix-client-v3-login -U '/path/to/myuser'
 ```
