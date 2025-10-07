@@ -18,7 +18,7 @@ matrix-request-access-token --help
 ```bash
 matrix-request-access-token [ARGUEMENT...] [--] [HOMESERVER]
 
-A curl wrapper for requesting an access token from a matrix homeserver.
+curl wrapper for requesting an access token from a matrix homeserver.
 
 DEPENDENCIES
 	curl
@@ -26,8 +26,8 @@ DEPENDENCIES
 ARGUEMENT
 	-u|--user USER
 	-I|--device-id ID                       Optional ID of known device
-	-n|--initial-device-display-name NAME   Optional display NAME for new device
 	-r|--refresh-token true || false		Optional client support for refresh tokens
+	-n|--initial-device-display-name NAME   Optional display NAME for new device
 	-P|--password-file PASSWORD_FILE		See: PASSWORD_FILE
 	-U|--user-file USER_FILE                See: USER_FILE
 	--dry-run                               Do everything except send the request
@@ -49,6 +49,7 @@ USER_FILE
 		homeserver, user, password, device_id, refresh_token, initial_device_display_name
 
 	- Lines not containing a VALUE_PAIR with an ACCEPTED VAR_NAME are ignored as comments.
+	- Lines beginning with equals (=) after removing tab/space indenting are comments.
 	- Each VALUE_PAIR must be on its own line ending in a newline.
 	- VAR_NAME is every character after tab/space indenting until the first equals (=).
 	- VALUE is every character after the first equals (=) until the first newline (\n).
@@ -68,19 +69,19 @@ EXAMPLES
 	# User interactive prompts to enter missing information that's required
 	matrix-request-access-token
 
-	# Headless request using ARGUEMENTS
+	# Headless request using ARGUEMENTs
 	matrix-request-access-token -u myuser -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
 
 	# Create a USER_FILE
 	>'/path/to/myuser'
 	chmod 600 -- '/path/to/myuser'
 	cat <<-'EOF' > '/path/to/myuser'
-		initial_device_display_name=My Device
-		refresh_token=true
-		device_id=12345
+		homeserver=https://myhomeserver.org
 		user=myuser
 		password=m\y pa#ss
-		homeserver=https://myhomeserver.org
+		device_id=12345
+		refresh_token=true
+		initial_device_display_name=My Device
 	EOF
 
 	# Headless request using a USER_FILE
