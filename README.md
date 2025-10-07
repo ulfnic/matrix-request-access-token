@@ -27,17 +27,22 @@ ARGUEMENT
 	-u|--user USER
 	-I|--device-id ID                       Optional ID of known device
 	-n|--initial-device-display-name NAME   Optional display NAME for new device
-	-U|--user-file USER_FILE                See: USER_FILE
+	-P|--password-file PASSWORD_FILE		See: PASSWORD_FILE, - for stdin
+	-U|--user-file USER_FILE                See: USER_FILE, - reads for stdin
 	--dry-run                               Do everything except send the request
 	--debug                                 Output debugging information
 	-h|--help                               Print help doc
 	HOMESERVER                              Homeserver base url
 
+PASSWORD_FILE
+	Path to a file containing a password on the first line. Additional lines are ignored.
+	If the path is a hyphen (-), path becomes stdin.
+
 USER_FILE
 	Path to a file containing VALUE_PAIRs as an alternative to using ARGUEMENTs, ex:
 		VAR_NAME=VALUE
 		
-	If the path is a hyphen (-), file is stdin.
+	If the path is a hyphen (-), path becomes stdin.
 
 	ACCEPTED VAR_NAMEs:
 		homeserver, user, password, device_id, initial_device_display_name
