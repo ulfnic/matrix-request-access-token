@@ -165,7 +165,7 @@ fi
 
 
 # Define function for loading auth files 
-load_auth_file() {
+load_user_file() {
 	# input vars: user, user_file_path
 	local no_clobber=$1 file_str var_name
 
@@ -199,7 +199,7 @@ load_auth_file() {
 
 
 # Load auth file if provided, without clobbering
-[[ $user_file_path ]] && load_auth_file 1
+[[ $user_file_path ]] && load_user_file 1
 
 
 
