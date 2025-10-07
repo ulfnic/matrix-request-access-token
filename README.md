@@ -27,6 +27,7 @@ ARGUEMENT
 	-u|--user USER
 	-I|--device-id ID                       Optional ID of known device
 	-n|--initial-device-display-name NAME   Optional display NAME for new device
+	-r|--refresh-token true || false		Optional client support for refresh tokens
 	-P|--password-file PASSWORD_FILE		See: PASSWORD_FILE, - for stdin
 	-U|--user-file USER_FILE                See: USER_FILE, - reads for stdin
 	--dry-run                               Do everything except send the request
@@ -45,7 +46,7 @@ USER_FILE
 	If the path is a hyphen (-), path becomes stdin.
 
 	ACCEPTED VAR_NAMEs:
-		homeserver, user, password, device_id, initial_device_display_name
+		homeserver, user, password, device_id, refresh_token, initial_device_display_name
 
 	- Lines not containing a VALUE_PAIR with an ACCEPTED VAR_NAME are ignored as comments.
 	- Each VALUE_PAIR must be on its own line ending in a newline.
@@ -57,6 +58,7 @@ ENVIRONMENT
 	MATRIX__HOMESERVER                    Matrix homeserver url, ex: https://myhomeserver.org
 	MATRIX__USER                          Account username, not including @...
 	MATRIX__DEVICE_ID                     Optional ID of known device
+	MATRIX__REFRESH_TOKEN                 true || false, optional client support for refresh tokens
 	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
 
 VALUE PRIORITY
@@ -71,6 +73,7 @@ EXAMPLES
 	chmod 600 -- '/path/to/myuser'
 	cat <<-'EOF' > '/path/to/myuser'
 		initial_device_display_name=My Device
+		refresh_token=true
 		device_id=12345
 		user=myuser
 		password=m\y pa#ss
