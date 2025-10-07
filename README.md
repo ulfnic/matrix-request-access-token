@@ -1,10 +1,10 @@
 # matrix-request-access-token
 
-A curl wrapper for requesting an access token from a matrix homeserver.
+`curl` wrapper for requesting an access token from a matrix homeserver.
 
 ```bash
 # Request an access token
-matrix-request-access-token --auth-url-user-pass '/path/to/auth'
+matrix-request-access-token -u 'myuser' -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
 ```
 ```bash
 # stdout
