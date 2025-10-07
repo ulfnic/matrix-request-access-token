@@ -28,8 +28,8 @@ ARGUEMENT
 	-I|--device-id ID                       Optional ID of known device
 	-n|--initial-device-display-name NAME   Optional display NAME for new device
 	-r|--refresh-token true || false		Optional client support for refresh tokens
-	-P|--password-file PASSWORD_FILE		See: PASSWORD_FILE, - for stdin
-	-U|--user-file USER_FILE                See: USER_FILE, - reads for stdin
+	-P|--password-file PASSWORD_FILE		See: PASSWORD_FILE
+	-U|--user-file USER_FILE                See: USER_FILE
 	--dry-run                               Do everything except send the request
 	--debug                                 Output debugging information
 	-h|--help                               Print help doc
@@ -62,11 +62,14 @@ ENVIRONMENT
 	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
 
 VALUE PRIORITY
-	ARGUEMENT value > USER_FILE value > ENVIRONMENT value
+	ARGUEMENT value > PASSWORD_FILE value > USER_FILE value > ENVIRONMENT value
 
 EXAMPLES
-	# Enter missing information interactively
-	matrix-request-access-token 'https://myhomeserver.org'
+	# User interactive prompts to enter missing information that's required
+	matrix-request-access-token
+
+	# Headless request using ARGUEMENTS
+	matrix-request-access-token -u myuser -P <(printf '%s' 'mypass') 'https://myhomeserver.org'
 
 	# Create a USER_FILE
 	>'/path/to/myuser'
@@ -80,6 +83,6 @@ EXAMPLES
 		homeserver=https://myhomeserver.org
 	EOF
 
-	# Headless request
+	# Headless request using a USER_FILE
  	matrix-request-access-token -U '/path/to/myuser'
 ```
