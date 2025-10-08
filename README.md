@@ -61,6 +61,7 @@ ENVIRONMENT
 	MATRIX__DEVICE_ID                     Optional ID of known device
 	MATRIX__REFRESH_TOKEN                 true || false, optional client support for refresh tokens
 	MATRIX__INITIAL_DEVICE_DISPLAY_NAME   Optional display name for new device
+	MATRIX__USER_FILE                     See: USER_FILE
 
 VALUE PRIORITY
 	ARGUEMENT value > PASSWORD_FILE value > USER_FILE value > ENVIRONMENT value
